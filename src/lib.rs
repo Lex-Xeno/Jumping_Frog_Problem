@@ -1,130 +1,77 @@
-use indoc::indoc;
-use rand::random;
+pub mod frog_manager;
+use std::{
+    fs::File,
+    io::{ErrorKind, Read},
+};
 
-/// Represents a frog
-/// # Fields
-/// - `id` is an ID given to each frog to distinguish them from one and other if multiple frogs are used
-/// - `position` represents the lilly pad that the frog is currently on
-/// - `jumps` is the number of jumps the frog has made
-/// - `distance` - is the number of the furthest lilly pad that the frog has jumped to
-pub struct Frog {
-    id: usize,
-    position: isize,
-    jumps: usize,
-    distance: isize,
-    heading: FrogHeading,
+const PRINT_ERROR: &str = "Cliclack failed to print to stdout";
+
+pub fn read_config() -> String {
+    let read_prog = cliclack::spinner();
+    read_prog.start("Reading file 'config.toml'...");
+    let mut config_file = match File::open("config.toml") {
+        Ok(file) => file,
+        Err(error) => match error.kind() {
+            ErrorKind::NotFound => {
+                read_prog.error("Reading file 'config.toml' failed!");
+
+                cliclack::log::error("The config file was not found!").expect(PRINT_ERROR);
+                cliclack::outro_cancel("Failed whilst reading the config file.")
+                    .expect(PRINT_ERROR);
+                std::process::exit(1);
+            }
+            _ => {
+                read_prog.error("Reading file 'config.toml' failed!");
+
+                cliclack::log::error(format!("error: {:?}", error.kind())).expect(PRINT_ERROR);
+                cliclack::outro_cancel("Failed whilst reading the config file.")
+                    .expect(PRINT_ERROR);
+                std::process::exit(1);
+            }
+        },
+    };
+
+    let mut contents = String::with_capacity(config_file.metadata().unwrap().len() as usize);
+    config_file.read_to_string(&mut contents).unwrap();
+    read_prog.stop("File 'config.toml' red successfully!");
+
+    contents
 }
 
-/// Enums that represent which side of the center the frog jumped to
-pub enum FrogHeading {
-    Left,
-    Right,
-}
+pub fn parse_config(raw_config: String) -> Config {
+    let parse_prog = cliclack::spinner();
+    parse_prog.start("Parsing file 'config.toml'...");
+    let config = match toml::from_str::<Config>(&raw_config) {
+        Ok(data) => data,
+        Err(error) => {
+            parse_prog.error("Parsing file 'config.toml' failed!");
 
-impl std::fmt::Display for FrogHeading {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FrogHeading::Left => write!(f, "left"),
-            FrogHeading::Right => write!(f, "right"),
+            if error.message().contains("missing") {
+                cliclack::log::error(error.message()).expect(PRINT_ERROR);
+            } else if let Some(span) = error.span() {
+                cliclack::log::error(format!(
+                    "{} at characters {} to {}",
+                    error.message(),
+                    span.start,
+                    span.end
+                ))
+                .expect(PRINT_ERROR);
+            } else {
+                cliclack::log::error(format!("{} at an unknown location", error.message()))
+                    .expect(PRINT_ERROR);
+            }
+            cliclack::outro_cancel("Failed whilst parsing the config file.").expect(PRINT_ERROR);
+            std::process::exit(1);
         }
-    }
-}
-impl std::clone::Clone for FrogHeading {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl Copy for FrogHeading {}
+    };
+    parse_prog.stop("File 'config.toml' parsed successfully!");
 
-impl Frog {
-    /// Creates a new frog, sets its heading, and gives it an ID number
-    pub fn start(id: usize) -> Frog {
-        let heading = if random() {
-            FrogHeading::Left
-        } else {
-            FrogHeading::Right
-        };
-
-        Frog {
-            id,
-            position: 1,
-            jumps: 1,
-            distance: 1,
-            heading,
-        }
-    }
-    /// Makes the frog jump
-    pub fn jump(&mut self) -> Option<()> {
-        self.position += if random() { -1 } else { 1 };
-        self.jumps += 1;
-
-        if self.distance < self.position {
-            self.distance = self.position
-        }
-
-        if self.position == 0 {
-            Some(())
-        } else {
-            None
-        }
-    }
-
-    /// Returns the frogs's ID, total number of jumps, heading, and current position
-    pub fn status(&self) -> String {
-        format!(
-            "Frog {} has taken {} jumps to the {} and is sitting on lilly pad {}",
-            self.id, self.jumps, self.heading, self.position
-        )
-    }
-    /// Returns the frog's ID, total number of jumps, the heading, and the furthest lilly pad the frog jumped to
-    pub fn result(&self) -> String {
-        format!(
-            "Frog {} took a total of {} jumps to the {} and made it to lilly pad {} at the furthest",
-            self.id, self.jumps, self.heading, self.distance
-        )
-    }
-    /// Returns the frog's data in the for of a csv entry
-    pub fn csv_results(&self) -> String {
-        let distance = match self.heading {
-            FrogHeading::Left => -self.distance,
-            FrogHeading::Right => self.distance,
-        };
-        format!("{},{},{}\n", self.id, self.jumps, distance)
-    }
+    config
 }
 
-// Getters
-impl Frog {
-    /// Returns the ID of the frog
-    pub fn id(&self) -> usize {
-        self.id
-    }
-    /// Returns the position of the frog
-    pub fn position(&self) -> isize {
-        self.position
-    }
-    /// Returns the total number of jumps of the frog
-    pub fn jumps(&self) -> usize {
-        self.jumps
-    }
-    /// Returns which side of the center that the frog jumped to
-    pub fn heading(&self) -> FrogHeading {
-        self.heading
-    }
-}
-
-impl std::fmt::Debug for Frog {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            indoc! {
-            "frog: {}
-            jumps: {}
-            lilly pad: {}
-            furthest distance: {}
-            heading: {}",
-            },
-            self.id, self.jumps, self.position, self.distance, self.heading,
-        )
-    }
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug)]
+pub struct Config {
+    pub group_size: usize,
+    pub total_groups: usize,
 }
