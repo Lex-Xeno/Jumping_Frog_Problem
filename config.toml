@@ -1,2 +1,2 @@
-group_size = 4
-total_groups = 10
+total_frogs = 100
+threads = 15
