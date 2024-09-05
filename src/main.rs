@@ -8,8 +8,8 @@ fn main() {
     let raw_config = read_config();
     let config = parse_config(raw_config);
 
-    let mut manager = FrogManager::new(config.group_size, config.total_groups);
-    manager.simulate();
+    let mut manager = FrogManager::new(config.total_frogs);
+    manager.simulate(config.threads);
     manager.export("results");
 
     cliclack::outro("See the 'results.csv' spreadsheet for the output").expect(PRINT_ERROR);

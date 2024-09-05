@@ -72,6 +72,6 @@ pub fn parse_config(raw_config: String) -> Config {
 #[allow(dead_code)]
 #[derive(serde::Deserialize, Debug)]
 pub struct Config {
-    pub group_size: usize,
-    pub total_groups: usize,
+    pub total_frogs: usize,
+    pub threads: usize,
 }
