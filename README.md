@@ -1,38 +1,47 @@
 # Jumping Frog Problem
 
-This CLI application concurrently simulates the frogs in the [Jumping Frog Problem](#What is the Jumping Frog Problem?) and compiles the results into a CSV spreadsheet.
+This CLI application is designed to simulates a given number of frogs in the [Jumping Frog Problem](#what-is-the-jumping-frog-problem) and compiles the results into a CSV spreadsheet.
 
-## What is the Jumping Frog Problem?
+## What is the Jumping Frog Problem
 
-The jumping frog problem is a simplified version of a gambler's ruin where a frog exists on an infinite 1 dimensional line of lily pads and will jump either left or right randomly with a 50% chance of either event occurring.
+The jumping frog problem is a simplified version of A Gambler's Ruin where a frog exists on an infinite 1 dimensional line of lily pads and will jump either left or right randomly with a 50% chance of either event occurring.
 
 ## Usage
 
-When started the programme will prompt you with 2 questions
+When started the programme will use the values specified in `config.toml` to configure itself.
 
-1. "How many frogs per group do you want to simulate?" - this will determine the number of threads at a time the programme will spawn
-2. "How many groups do you want to simulate?" - this will determine the number of times the programme will simulate the amount of frogs specified
+`config.toml` consists of
 
-## Installation
+- `total_frogs` - the total number of frogs to simulate
+- `threads` - the number of threads to use
 
-You can use the programme on my [Replit](https://replit.com/@LexXeno/JumpingFrogProblem?v=1)
-
-or...
-
-You can build it form source
-
-Install Rustup from its [official page](https://www.rust-lang.org/tools/install)
+## Running the Programme
 
 ```sh
 git clone --depth 1 https://github.com/Lex-Xeno/Jumping_Frog_Problem.git
 cd Jumping_Frog_Problem
-cargo r --release # this runs the programme
+cargo r --release
 ```
+
+## On a Serious Note
+
+This is the first public project I've ever worked on. Don't expect this to be amazing.
+
+This project only serves as
+
+- a fun programming project from my maths teacher
+- a way for me to get familiarized with git
+- Rust programming practice
+  - multi-threading
+  - best practices
+  - getting used to the memory management system
+
+If anyone has the time and wants to, comments on how I could tweak my code to make it look better or more efficient are more than appreciated! But once again I don't expect this from anyone.
 
 ## Still to Come
 
-- A worker based model where the user will only be prompted to enter the number of frogs to simulate
-- A graphical interface:
-  - that prompts the user for input
-  - that displays the statistics gathered from the simulations
-- A method of exiting early from the simulation loop with what data that has been collected
+- A graphical interface
+- A method of exiting early from the simulation loop with the data that has been collected
+- A system to write the results to the `results.csv` file as they are simulated to prevent filling up memory
+- Cleaning up the code to make it look better
+- Optimizing the code more (if it need it)
