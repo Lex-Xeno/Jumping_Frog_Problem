@@ -1,4 +1,4 @@
-use jumping_frog_problem::{frog_manager::*, *};
+use jumping_frog_problem::*;
 
 const PRINT_ERROR: &str = "Cliclack failed to print to stdout";
 

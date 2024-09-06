@@ -1,5 +1,3 @@
-use indoc::indoc;
-use rand::random;
 use std::{fs, io::Write, sync::mpsc, thread};
 
 pub struct FrogManager {
@@ -8,6 +6,7 @@ pub struct FrogManager {
 }
 
 impl FrogManager {
+    /// Create a new frog manager
     pub fn new(total_frogs: usize) -> FrogManager {
         FrogManager {
             total_frogs,
@@ -15,6 +14,7 @@ impl FrogManager {
         }
     }
 
+    /// Starts simulating the given number of frogs
     pub fn simulate(&mut self, threads: usize) {
         let bar = cliclack::progress_bar(self.total_frogs as u64);
         bar.start("Simulating groups");
@@ -74,12 +74,14 @@ impl FrogManager {
         bar.stop("Simulating finished!");
     }
 
+    /// exports the data collected from the simulation
     pub fn export(&self, spreadsheet_name: &str) {
         let mut spreadsheet_name = spreadsheet_name.to_string();
         spreadsheet_name.push_str(".csv");
         let spreadsheet_name = spreadsheet_name.as_str();
 
-        let mut results = String::with_capacity(self.total_frogs * (4 * 3) + 37); // 37 accounts for the title of the columns TODO: create algorithm that calculates this more precisely
+        let mut results = String::with_capacity(self.total_frogs * (4 * 3) + 37); /* 37 accounts for the title of the columns */
+        // TODO: change this to make the programme export each frog/batch export them to prevent high RAM uses
 
         results.push_str("Frog ID,Total Jumps,Furthest distance\n");
         self.spent_frogs
@@ -93,6 +95,9 @@ impl FrogManager {
             .expect("Failed to write to spreadsheet");
     }
 }
+
+use indoc::indoc;
+use rand::random;
 
 /// Represents a frog
 /// # Fields
@@ -213,52 +218,5 @@ impl std::fmt::Debug for Frog {
             },
             self.jumps, self.position, self.distance, self.heading,
         )
-    }
-}
-
-struct WorkHouse<A, B>
-where
-    A: FnOnce() -> B + std::marker::Send + 'static,
-    B: std::marker::Send + 'static,
-{
-    job_pool: Vec<A>,
-    workers: Vec<thread::JoinHandle<B>>,
-    worker_channels: Vec<mpsc::Sender<A>>,
-}
-
-impl<A, B> WorkHouse<A, B>
-where
-    A: FnOnce() -> B + std::marker::Send + 'static,
-    B: std::marker::Send + 'static,
-{
-    pub fn new(thread_count: usize) -> WorkHouse<A, B> {
-        WorkHouse {
-            job_pool: Vec::new(),
-            workers: Vec::with_capacity(thread_count),
-            worker_channels: Vec::with_capacity(thread_count),
-        }
-    }
-
-    pub fn push_jobs(&mut self, mut jobs: Vec<A>) {
-        self.job_pool.append(&mut jobs);
-    }
-
-    pub fn push_job(&mut self, job: A) {
-        self.job_pool.push(job);
-    }
-
-    pub fn start(&mut self) {
-        let (tx, rx) = mpsc::channel();
-
-        for id in 0..self.workers.len() {
-            let sender = tx.clone();
-            let (tx, receiver) = mpsc::channel::<A>();
-            self.workers.push(thread::spawn(move || {
-                let job = receiver.recv().unwrap();
-                let result = job();
-                sender.send(id).unwrap();
-                result
-            }))
-        }
     }
 }
