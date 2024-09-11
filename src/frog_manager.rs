@@ -1,24 +1,25 @@
 use crossterm::event::{self, poll, read, Event};
-use std::{fs, io::Write, sync::mpsc, thread, time::Duration};
+use std::{fs::File, io::Write, sync::mpsc, thread, time::Duration};
 
 pub struct FrogManager {
     total_frogs: usize,
-    spent_frogs: Vec<Frog>,
 }
 
 impl FrogManager {
     /// Create a new frog manager
     pub fn new(total_frogs: usize) -> FrogManager {
-        FrogManager {
-            total_frogs,
-            spent_frogs: Vec::with_capacity(total_frogs),
-        }
+        FrogManager { total_frogs }
     }
 
     /// Starts simulating the given number of frogs
     pub fn simulate(&mut self, threads: usize) {
         let (result_trans, result_rec) = mpsc::channel();
         let mut workers = (Vec::with_capacity(threads), Vec::with_capacity(threads));
+        let mut results =
+            File::create("results.csv").expect("Failed to create 'results.csv' file!");
+        results
+            .write_all("Total Jumps,Furthest distance\n".as_bytes())
+            .expect("Failed to write to 'results.csv'!");
 
         for id in 0..threads {
             let result_trans = result_trans.clone();
@@ -32,7 +33,7 @@ impl FrogManager {
                         id, error
                     )
                 }) {
-                    let mut frog = Frog::start();
+                    let mut frog = Frog::start(None);
 
                     while frog.jump().is_none() {}
                     result_trans.send((id, frog)).unwrap_or_else(|error| {
@@ -71,7 +72,9 @@ impl FrogManager {
                 }
             }
 
-            self.spent_frogs.push(frog);
+            results
+                .write_all(frog.csv_results().as_bytes())
+                .expect("Failed to write to 'results.csv'!");
             workers.1[worker_id].send(true).unwrap();
         }
         bar.stop("Simulating finished!");
@@ -89,29 +92,10 @@ impl FrogManager {
         bar.stop("Remaining frogs have finished!");
 
         while let Ok((_, frog)) = result_rec.recv() {
-            self.spent_frogs.push(frog);
+            results
+                .write_all(frog.csv_results().as_bytes())
+                .expect("Failed to write to 'results.csv'!");
         }
-    }
-
-    /// exports the data collected from the simulation
-    pub fn export(&self, spreadsheet_name: &str) {
-        let mut spreadsheet_name = spreadsheet_name.to_string();
-        spreadsheet_name.push_str(".csv");
-        let spreadsheet_name = spreadsheet_name.as_str();
-
-        let mut results = String::with_capacity(self.total_frogs * (4 * 3) + 37); /* 37 accounts for the title of the columns */
-        // TODO: change this to make the programme export each frog/batch export them to prevent high RAM uses
-
-        results.push_str("Frog ID,Total Jumps,Furthest distance\n");
-        self.spent_frogs
-            .iter()
-            .enumerate()
-            .for_each(|(id, frog)| results.push_str(&frog.csv_results(id)));
-
-        fs::File::create(spreadsheet_name)
-            .expect("Failed to create spreadsheet")
-            .write_all(results.as_bytes())
-            .expect("Failed to write to spreadsheet");
     }
 }
 
@@ -125,6 +109,7 @@ use rand::random;
 /// - `jumps` is the number of jumps the frog has made
 /// - `distance` - is the number of the furthest lilly pad that the frog has jumped to
 pub struct Frog {
+    id: Option<usize>,
     position: isize,
     jumps: usize,
     distance: isize,
@@ -154,7 +139,7 @@ impl Copy for FrogHeading {}
 
 impl Frog {
     /// Creates a new frog, sets its heading, and gives it an ID number
-    pub fn start() -> Frog {
+    pub fn start(id: Option<usize>) -> Frog {
         let heading = if random() {
             FrogHeading::Left
         } else {
@@ -162,6 +147,7 @@ impl Frog {
         };
 
         Frog {
+            id,
             position: 1,
             jumps: 1,
             distance: 1,
@@ -185,26 +171,45 @@ impl Frog {
     }
 
     /// Returns the frogs's ID, total number of jumps, heading, and current position
-    pub fn status(&self, id: usize) -> String {
-        format!(
-            "Frog {} has taken {} jumps to the {} and is sitting on lilly pad {}",
-            id, self.jumps, self.heading, self.position
-        )
+    pub fn status(&self) -> String {
+        if let Some(id) = self.id {
+            format!(
+                "Frog {} has taken {} jumps to the {} and is sitting on lilly pad {}",
+                id, self.jumps, self.heading, self.position
+            )
+        } else {
+            format!(
+                "This frog has taken {} jumps to the {} and is sitting on lilly pad {}",
+                self.jumps, self.heading, self.position
+            )
+        }
     }
     /// Returns the frog's ID, total number of jumps, the heading, and the furthest lilly pad the frog jumped to
-    pub fn result(&self, id: usize) -> String {
-        format!(
-                    "Frog {} took a total of {} jumps to the {} and made it to lilly pad {} at the furthest",
-                    id, self.jumps, self.heading, self.distance
-                )
+    pub fn result(&self) -> String {
+        if let Some(id) = self.id {
+            format!(
+                "Frog {} took a total of {} jumps to the {} and made it to lilly pad {} at the furthest",
+                id, self.jumps, self.heading, self.distance
+            )
+        } else {
+            format!(
+                "This frog took a total of {} jumps to the {} and made it to lilly pad {} at the furthest",
+                self.jumps, self.heading, self.distance
+            )
+        }
     }
     /// Returns the frog's data in the for of a csv entry
-    pub fn csv_results(&self, id: usize) -> String {
+    pub fn csv_results(&self) -> String {
         let distance = match self.heading {
             FrogHeading::Left => -self.distance,
             FrogHeading::Right => self.distance,
         };
-        format!("{},{},{}\n", id, self.jumps, distance)
+
+        if let Some(id) = self.id {
+            format!("{},{},{}\n", id, self.jumps, distance)
+        } else {
+            format!("{},{}\n", self.jumps, distance)
+        }
     }
 }
 
@@ -226,16 +231,23 @@ impl Frog {
 
 impl std::fmt::Debug for Frog {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let id = if let Some(id) = self.id {
+            format!("Some({})", id)
+        } else {
+            "None".to_string()
+        };
+
         write!(
             f,
             indoc! {
             "frog:
-                jumps: {}
-                lilly pad: {}
-                furthest distance: {}
-                heading: {}",
+                id: {},
+                position: {},
+                jumps: {},
+                distance: {},
+                heading: {},"
             },
-            self.jumps, self.position, self.distance, self.heading,
+            id, self.position, self.jumps, self.distance, self.heading,
         )
     }
 }

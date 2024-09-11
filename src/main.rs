@@ -10,7 +10,6 @@ fn main() {
 
     let mut manager = FrogManager::new(config.total_frogs);
     manager.simulate(config.threads);
-    manager.export("results");
 
     cliclack::outro("See the 'results.csv' spreadsheet for the output").expect(PRINT_ERROR);
 }
