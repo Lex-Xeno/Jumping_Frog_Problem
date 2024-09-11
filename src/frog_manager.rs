@@ -1,4 +1,5 @@
-use std::{fs, io::Write, sync::mpsc, thread};
+use crossterm::event::{self, poll, read, Event};
+use std::{fs, io::Write, sync::mpsc, thread, time::Duration};
 
 pub struct FrogManager {
     total_frogs: usize,
@@ -16,19 +17,15 @@ impl FrogManager {
 
     /// Starts simulating the given number of frogs
     pub fn simulate(&mut self, threads: usize) {
-        let bar = cliclack::progress_bar(self.total_frogs as u64);
-        bar.start("Simulating groups");
-
         let (result_trans, result_rec) = mpsc::channel();
-        let mut workers = Vec::with_capacity(threads);
-        let mut worker_channels = Vec::with_capacity(threads);
+        let mut workers = (Vec::with_capacity(threads), Vec::with_capacity(threads));
 
         for id in 0..threads {
             let result_trans = result_trans.clone();
             let (jobs_trans, jobs_rec) = mpsc::channel();
-            worker_channels.push(jobs_trans);
+            workers.1.push(jobs_trans);
 
-            workers.push(thread::spawn(move || {
+            workers.0.push(thread::spawn(move || {
                 while jobs_rec.recv().unwrap_or_else(|error| {
                     panic!(
                         "Worker {} failed to receive job signal! Error: {}",
@@ -49,29 +46,51 @@ impl FrogManager {
         }
         drop(result_trans);
 
-        for worker in &worker_channels {
+        for worker in &workers.1 {
             worker.send(true).unwrap();
         }
+
+        cliclack::log::info("Press <Enter> to finish simulating the current frogs and exit.")
+            .unwrap();
+        let bar = cliclack::progress_bar(self.total_frogs as u64);
+        bar.start("Simulating frogs");
 
         for _ in 0..self.total_frogs - threads {
             let (worker_id, frog) = result_rec.recv().unwrap();
             bar.inc(1);
 
-            self.spent_frogs.push(frog);
-            worker_channels[worker_id].send(true).unwrap();
-        }
+            if poll(Duration::from_micros(50)).unwrap() {
+                match read().unwrap() {
+                    Event::Key(key) => match key.code {
+                        event::KeyCode::Enter => {
+                            break;
+                        }
+                        _ => continue,
+                    },
+                    _ => continue,
+                }
+            }
 
-        for worker in &worker_channels {
+            self.spent_frogs.push(frog);
+            workers.1[worker_id].send(true).unwrap();
+        }
+        bar.stop("Simulating finished!");
+
+        for worker in &workers.1 {
             worker.send(false).unwrap();
         }
-        for worker in workers {
-            worker.join().unwrap()
+
+        let bar = cliclack::progress_bar(threads as u64);
+        bar.start("Waiting for the last frogs, this might take a while...");
+        for worker in workers.0 {
+            worker.join().unwrap();
+            bar.inc(1);
         }
+        bar.stop("Remaining frogs have finished!");
+
         while let Ok((_, frog)) = result_rec.recv() {
             self.spent_frogs.push(frog);
         }
-
-        bar.stop("Simulating finished!");
     }
 
     /// exports the data collected from the simulation
