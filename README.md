@@ -1,6 +1,6 @@
 # Jumping Frog Problem
 
-This CLI application is designed to simulates a given number of frogs in the [Jumping Frog Problem](#what-is-the-jumping-frog-problem) and compiles the results into a CSV spreadsheet.
+This CLI application is designed to simulate a given number of frogs in the [Jumping Frog Problem](#what-is-the-jumping-frog-problem) and compiles the results into a CSV spreadsheet.
 
 ## What is the Jumping Frog Problem
 
@@ -14,6 +14,13 @@ When started the programme will use the values specified in `config.toml` to con
 
 - `total_frogs` - the total number of frogs to simulate
 - `threads` - the number of threads to use
+
+A default config would look like
+
+```toml
+total_frogs = 10000
+threads = 8
+```
 
 ## Running the Programme
 
@@ -40,8 +47,6 @@ If anyone has the time and wants to, comments on how I could tweak my code to ma
 
 ## Still to Come
 
-- A graphical interface
-- A method of exiting early from the simulation loop with the data that has been collected
-- A system to write the results to the `results.csv` file as they are simulated to prevent filling up memory
-- Cleaning up the code to make it look better
+- A graphical interface (maybe)
 - Optimizing the code more (if it need it)
+- Unit tests for `Handler`

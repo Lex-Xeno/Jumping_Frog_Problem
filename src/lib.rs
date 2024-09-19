@@ -1,11 +1,22 @@
-mod frog_manager;
-pub use frog_manager::*;
+mod frog;
+pub mod handler;
+
+pub use handler::*;
 use std::{
+    fmt::Debug,
     fs::File,
     io::{ErrorKind, Read},
 };
 
-pub fn read_config() -> String {
+/// Reads and parses a config.toml file into a [`Config`]
+///
+/// # Quits
+/// Quits the programme and prints an error if there is an issue with the config file
+pub fn get_config() -> Config {
+    parse_config(read_config())
+}
+
+fn read_config() -> String {
     let mut config_file = match File::open("config.toml") {
         Ok(file) => file,
         Err(error) => match error.kind() {
@@ -22,13 +33,13 @@ pub fn read_config() -> String {
         },
     };
 
-    let mut contents = String::with_capacity(config_file.metadata().unwrap().len() as usize);
+    let mut contents = String::new();
     config_file.read_to_string(&mut contents).unwrap();
 
     contents
 }
 
-pub fn parse_config(raw_config: String) -> Config {
+fn parse_config(raw_config: String) -> Config {
     let config = match toml::from_str::<Config>(&raw_config) {
         Ok(data) => data,
         Err(error) => {
@@ -59,4 +70,21 @@ pub fn parse_config(raw_config: String) -> Config {
 pub struct Config {
     pub total_frogs: usize,
     pub threads: usize,
+}
+
+pub trait PrettyExpect<T> {
+    fn handle(self, message: &str) -> T;
+}
+
+impl<T, E: Debug> PrettyExpect<T> for Result<T, E> {
+    fn handle(self, message: &str) -> T {
+        match self {
+            Ok(ok) => ok,
+            Err(err) => {
+                cliclack::outro_cancel(format!("{}! Error {:?}", message, err))
+                    .expect("Cliclack failed to print to stdout!");
+                std::process::exit(-1);
+            }
+        }
+    }
 }
